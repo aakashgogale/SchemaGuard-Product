@@ -30,7 +30,7 @@ def upgrade() -> None:
         "ACTIVE",
         "DEPRECATED",
         name="versionstatus",
-        create_type=True,
+        create_type=False,
     )
     version_status.create(op.get_bind(), checkfirst=True)
 

@@ -1,12 +1,13 @@
 """Alembic migrations environment configuration."""
 
 from logging.config import fileConfig
+from pathlib import Path
 
 from flask import current_app
 from alembic import context
 
 config = context.config
-if config.config_file_name is not None:
+if config.config_file_name is not None and Path(config.config_file_name).exists():
     fileConfig(config.config_file_name)
 
 target_metadata = current_app.extensions["migrate"].db.metadata

@@ -1,7 +1,7 @@
 """Add user display usernames.
 
 Revision ID: 0004_usernames
-Revises: 0003_admin_roles_activity_messaging
+Revises: 0003_admin_roles_activity
 Create Date: 2026-05-07
 """
 
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 revision = "0004_usernames"
-down_revision = "0003_admin_roles_activity_messaging"
+down_revision = "0003_admin_roles_activity"
 branch_labels = None
 depends_on = None
 

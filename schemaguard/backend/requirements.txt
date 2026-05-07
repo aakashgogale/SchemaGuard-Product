@@ -6,7 +6,7 @@ flask-cors>=5.0.0
 sqlalchemy>=2.0.36
 alembic>=1.14.0
 pydantic[email]>=2.11.0
-psycopg2-binary>=2.9.10;python_version<"3.14"
+psycopg2-binary>=2.9.12
 werkzeug>=3.1.0
 gunicorn>=23.0.0;sys_platform!="win32"
 pytest>=8.3.0

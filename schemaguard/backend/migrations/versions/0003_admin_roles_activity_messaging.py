@@ -1,6 +1,6 @@
 """Add admin, roles, activity, and messaging.
 
-Revision ID: 0003_admin_roles_activity_messaging
+Revision ID: 0003_admin_roles_activity
 Revises: 0002_collaboration_notifications
 Create Date: 2026-05-07
 """
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 
-revision = "0003_admin_roles_activity_messaging"
+revision = "0003_admin_roles_activity"
 down_revision = "0002_collaboration_notifications"
 branch_labels = None
 depends_on = None
@@ -18,6 +18,38 @@ depends_on = None
 
 def upgrade() -> None:
     """Apply admin, roles, activity, and messaging schema."""
+    member_role = postgresql.ENUM(
+        "CO_LEAD",
+        "MEMBER",
+        name="memberrole",
+        create_type=False,
+    )
+    sender_type = postgresql.ENUM(
+        "TEAM_A",
+        "TEAM_B",
+        name="sendertype",
+        create_type=False,
+    )
+    activity_action = postgresql.ENUM(
+        "SCHEMA_UPLOADED",
+        "DIFF_VIEWED",
+        "MEMBER_ADDED",
+        "MEMBER_REMOVED",
+        "SUBSCRIBER_ADDED",
+        "SUBSCRIBER_REMOVED",
+        "MESSAGE_SENT",
+        "REGISTRY_CREATED",
+        "REGISTRY_DELETED",
+        "ROLE_CHANGED",
+        "SUBSCRIBER_LEAD_CHANGED",
+        name="activityaction",
+        create_type=False,
+    )
+    bind = op.get_bind()
+    member_role.create(bind, checkfirst=True)
+    sender_type.create(bind, checkfirst=True)
+    activity_action.create(bind, checkfirst=True)
+
     op.add_column("users", sa.Column("is_admin", sa.Boolean(), server_default=sa.text("false"), nullable=False))
     op.add_column("users", sa.Column("last_login_at", sa.DateTime(), nullable=True))
     op.add_column("users", sa.Column("last_active_at", sa.DateTime(), nullable=True))
@@ -34,7 +66,7 @@ def upgrade() -> None:
     op.create_foreign_key("fk_schema_versions_uploaded_by", "schema_versions", "users", ["uploaded_by_id"], ["id"], ondelete="SET NULL")
     op.create_index("ix_schema_versions_uploaded_by_id", "schema_versions", ["uploaded_by_id"])
 
-    op.add_column("api_members", sa.Column("role", sa.Enum("CO_LEAD", "MEMBER", name="memberrole"), server_default="MEMBER", nullable=False))
+    op.add_column("api_members", sa.Column("role", member_role, server_default="MEMBER", nullable=False))
     op.add_column("api_subscribers", sa.Column("team_name", sa.String(length=100), nullable=True))
     op.add_column("api_subscribers", sa.Column("is_lead", sa.Boolean(), server_default=sa.text("false"), nullable=False))
 
@@ -42,7 +74,7 @@ def upgrade() -> None:
         "registry_messages",
         sa.Column("id", postgresql.UUID(as_uuid=False), nullable=False),
         sa.Column("registry_id", postgresql.UUID(as_uuid=False), nullable=False),
-        sa.Column("sender_type", sa.Enum("TEAM_A", "TEAM_B", name="sendertype"), nullable=False),
+        sa.Column("sender_type", sender_type, nullable=False),
         sa.Column("sender_email", sa.String(length=255), nullable=False),
         sa.Column("content", sa.Text(), nullable=False),
         sa.Column("sent_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
@@ -60,20 +92,7 @@ def upgrade() -> None:
         sa.Column("actor_role", sa.String(length=50), nullable=False),
         sa.Column(
             "action",
-            sa.Enum(
-                "SCHEMA_UPLOADED",
-                "DIFF_VIEWED",
-                "MEMBER_ADDED",
-                "MEMBER_REMOVED",
-                "SUBSCRIBER_ADDED",
-                "SUBSCRIBER_REMOVED",
-                "MESSAGE_SENT",
-                "REGISTRY_CREATED",
-                "REGISTRY_DELETED",
-                "ROLE_CHANGED",
-                "SUBSCRIBER_LEAD_CHANGED",
-                name="activityaction",
-            ),
+            activity_action,
             nullable=False,
         ),
         sa.Column("metadata", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
@@ -103,3 +122,6 @@ def downgrade() -> None:
     op.drop_column("users", "last_active_at")
     op.drop_column("users", "last_login_at")
     op.drop_column("users", "is_admin")
+    postgresql.ENUM(name="activityaction").drop(op.get_bind(), checkfirst=True)
+    postgresql.ENUM(name="sendertype").drop(op.get_bind(), checkfirst=True)
+    postgresql.ENUM(name="memberrole").drop(op.get_bind(), checkfirst=True)
