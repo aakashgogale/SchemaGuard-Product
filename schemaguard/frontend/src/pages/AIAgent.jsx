@@ -51,6 +51,12 @@ export default function AIAgent() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading, error]);
 
+  useEffect(() => {
+    if (error.includes('GEMINI_API_KEY')) {
+      setError('');
+    }
+  }, [error]);
+
   const sendMessage = async (content) => {
     const trimmed = content.trim();
     if (!trimmed || loading) return;
@@ -76,10 +82,7 @@ export default function AIAgent() {
         { role: 'assistant', content: response.reply, createdAt: new Date() },
       ]);
     } catch (err) {
-      const status = err.response?.status;
-      const message = status === 503
-        ? 'AI Agent is not configured. Add GEMINI_API_KEY to your backend environment and restart Flask.'
-        : err.response?.data?.message || 'AI service temporarily unavailable.';
+      const message = err.response?.data?.message || 'AI service temporarily unavailable.';
       setError(message);
     } finally {
       setLoading(false);
