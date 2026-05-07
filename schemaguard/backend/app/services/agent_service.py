@@ -113,6 +113,75 @@ Never make up API names or version numbers that are not in the provided data
 If asked something unrelated, politely redirect to API schemas, diffs, release safety, or SchemaGuard."""
 
 
+def generate_local_agent_reply(user: User, message: str) -> str:
+    """Generate a context-aware answer when no external LLM key is configured."""
+    registries = APIRegistry.query.filter_by(owner_id=user.id).all()
+    if not registries:
+        return (
+            "You do not have any APIs registered yet. Add an API and upload at least "
+            "one schema version, then I can help review release safety and breaking changes."
+        )
+
+    versions = [
+        (registry, version)
+        for registry in registries
+        for version in registry.versions
+    ]
+    if not versions:
+        return (
+            f"You have {len(registries)} API registry record(s), but no schema versions yet. "
+            "Upload a version first so I can compare changes and assess deployment risk."
+        )
+
+    lowered = message.lower()
+    latest_registry, latest_version = max(
+        versions,
+        key=lambda item: _as_aware(item[1].uploaded_at),
+    )
+    latest_diff = latest_version.diff_result or {}
+    breaking_count = int(latest_diff.get("breaking_count") or 0)
+    safe_count = int(latest_diff.get("safe_count") or 0)
+
+    if any(word in lowered for word in ("safe", "deploy", "release", "latest")):
+        if breaking_count > 0:
+            return (
+                f"I would not deploy {latest_registry.name} version {latest_version.version} "
+                f"without a subscriber communication plan. It has {breaking_count} breaking "
+                f"change(s) and {safe_count} safe change(s), so downstream consumers may need "
+                "time to adjust before release."
+            )
+        return (
+            f"{latest_registry.name} version {latest_version.version} looks safe to deploy "
+            f"from the stored diff data. I found {breaking_count} breaking change(s) and "
+            f"{safe_count} safe change(s); still run your normal tests before shipping."
+        )
+
+    if "breaking" in lowered or "risk" in lowered:
+        risky_versions = [
+            (registry, version, int((version.diff_result or {}).get("breaking_count") or 0))
+            for registry, version in versions
+            if int((version.diff_result or {}).get("breaking_count") or 0) > 0
+        ]
+        if not risky_versions:
+            return (
+                f"I do not see any stored breaking changes across your {len(registries)} API(s). "
+                "The highest current risk is still unreviewed future schema uploads."
+            )
+        registry, version, count = max(risky_versions, key=lambda item: item[2])
+        return (
+            f"The highest-risk item is {registry.name} version {version.version}, with "
+            f"{count} breaking change(s). Review that diff first and notify consumers before "
+            "promoting it."
+        )
+
+    return (
+        f"I can see {len(registries)} API(s) and {len(versions)} schema version(s) in your "
+        f"SchemaGuard workspace. The latest upload is {latest_registry.name} version "
+        f"{latest_version.version}, with {breaking_count} breaking change(s) and "
+        f"{safe_count} safe change(s)."
+    )
+
+
 def _format_recent_diff(item: dict[str, Any]) -> str:
     """Format one recent diff entry for prompt context."""
     diff = item["diff"]

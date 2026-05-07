@@ -7,7 +7,11 @@ from pydantic import ValidationError
 from app.middleware.auth_guard import jwt_required_custom
 from app.schemas.agent_schema import AgentChatRequest, AgentChatResponse
 from app.schemas.errors import format_validation_errors
-from app.services.agent_service import build_system_prompt, build_user_agent_context
+from app.services.agent_service import (
+    build_system_prompt,
+    build_user_agent_context,
+    generate_local_agent_reply,
+)
 
 agent_bp = Blueprint("agent", __name__, url_prefix="/api/agent")
 dashboard_bp = Blueprint("dashboard", __name__, url_prefix="/api/dashboard")
@@ -93,11 +97,14 @@ def chat(current_user):
     gemini_key = current_app.config.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
     anthropic_key = current_app.config.get("ANTHROPIC_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
     api_key = gemini_key if provider == "gemini" else anthropic_key
-    if not api_key:
-        return jsonify({"error": "service_unavailable", "message": "AI Agent is not configured"}), 503
 
     context, _stats = build_user_agent_context(current_user)
     system_prompt = build_system_prompt(context)
+
+    if not api_key:
+        reply = generate_local_agent_reply(current_user, data.message)
+        result = AgentChatResponse(reply=reply, used_context=True)
+        return jsonify(result.model_dump()), 200
 
     try:
         if provider == "gemini":

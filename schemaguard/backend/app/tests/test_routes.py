@@ -277,16 +277,18 @@ def test_public_diff_endpoint_returns_latest_diff(client, sample_registry, sampl
     assert data["diff_result"]["is_breaking"] is True
 
 
-def test_agent_chat_without_api_key_returns_503(client, auth_headers):
-    """Agent chat should fail gracefully when Anthropic is not configured."""
+def test_agent_chat_without_api_key_uses_local_context(client, auth_headers):
+    """Agent chat should still answer from local context when no provider key is configured."""
     headers = auth_headers()
     response = client.post(
         "/api/agent/chat",
         json={"message": "Is it safe to deploy?"},
         headers=headers,
     )
-    assert response.status_code == 503
-    assert response.get_json()["message"] == "AI Agent is not configured"
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["used_context"] is True
+    assert "reply" in data
 
 
 def test_dashboard_stats_returns_user_context_counts(client, sample_registry, sample_schema_v1):
